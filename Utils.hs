@@ -30,6 +30,17 @@ freeForSubst expr x theta = (x `elem` freeVars expr) <= thetaVarsSet `S.isSubset
     where thetaVarsSet = S.fromList $ allVars theta
           freeVarsSet  = S.fromList $ freeVars $ subst expr x theta
 
+eval :: Bool -> Expr -> Expr
+eval f (App l r)  = case (eval f l, eval f r) of
+    (Var v,      n) -> Var v `App` n
+    (Lambda v m, n) -> eval f $ subst m v n
+    (App a b,    n) -> a `App` b `App` n
+eval f (Lambda v m) = Lambda v $ if f then eval f m else m
+eval _ m            = m
+
+evalNF = eval True
+evalWHNF = eval False
+
 balanced :: String -> Bool
 balanced (_:ss) = count ss 1 where
     count (_:"") 1 = True

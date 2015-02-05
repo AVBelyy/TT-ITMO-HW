@@ -1,0 +1,8 @@
+*.swp
+*.hi
+*.o
+*.info
+*.in
+*.out
+Parser.hs
+Homework1

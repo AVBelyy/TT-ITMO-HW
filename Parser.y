@@ -18,17 +18,17 @@ import Data.Char
 
 %%
 
-Expr        : App sp1 '\\' sp Var sp '.' sp Expr    { App1 (App $1 (Nested (Lambda $5 $9))) }
-            | '\\' sp Var sp '.' sp Expr            { Lambda $3 $7 }
-            | App                                   { App1 $1 }
+Expr        : App sp1 '\\' sp Var sp '.' sp Expr    { RuleApp1 (RuleApp $1 (RuleNested (RuleLambda $5 $9))) }
+            | '\\' sp Var sp '.' sp Expr            { RuleLambda $3 $7 }
+            | App                                   { RuleApp1 $1 }
 
-App         : App sp1 Atom                          { App $1 $3 }
-            | Atom                                  { Atom1 $1 }
+App         : App sp1 Atom                          { RuleApp $1 $3 }
+            | Atom                                  { RuleAtom1 $1 }
 
-Atom        : '(' Expr ')'                          { Nested $2 }
-            | Var                                   { Var1 $1 }
+Atom        : '(' Expr ')'                          { RuleNested $2 }
+            | Var                                   { RuleVar1 $1 }
 
-Var         : var                                   { Var $1 }
+Var         : var                                   { RuleVar $1 }
 
 sp          : {- empty -}                           { [] }
             | space                                 { [] }
@@ -54,25 +54,38 @@ data Token
 
 {- Grammar -}
 
-data Expr 
-        = Lambda Var Expr
-        | App1 App
+data RuleExpr 
+        = RuleLambda RuleVar RuleExpr
+        | RuleApp1 RuleApp
 
-data App
-        = App App Atom
-        | Atom1 Atom
+data RuleApp
+        = RuleApp RuleApp RuleAtom
+        | RuleAtom1 RuleAtom
 
-data Atom
-        = Nested Expr
-        | Var1 Var
+data RuleAtom
+        = RuleNested RuleExpr
+        | RuleVar1 RuleVar
 
-data Var
-        = Var String
+data RuleVar
+        = RuleVar String
 
-{- Instances -}
+{- Data structure -}
+
+data Expr
+        = Lambda String Expr
+        | App Expr Expr
+        | Var String
+
+{- Instances & helpers -}
+
+toExpr :: RuleExpr -> Expr
+toExpr (RuleLambda (RuleVar v) expr) = Lambda v (toExpr expr)
+toExpr (RuleApp1 (RuleApp app atom)) = App (toExpr (RuleApp1 app)) (toExpr (RuleApp1 (RuleAtom1 atom)))
+toExpr (RuleApp1 (RuleAtom1 (RuleNested expr))) = toExpr expr
+toExpr (RuleApp1 (RuleAtom1 (RuleVar1 (RuleVar v)))) = Var v
 
 instance Read Expr where
-    readsPrec _ s = [(parse $ lexer $ dropWhile isSpace s, "")]
+    readsPrec _ s = [(toExpr $ parse $ lexer $ dropWhile isSpace s, "")]
 
 {- Lexer -}
 

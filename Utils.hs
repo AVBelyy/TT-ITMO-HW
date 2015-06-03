@@ -25,15 +25,34 @@ subst start haystack needle = doSubst [] start
           doSubst bound (App expr1 expr2) = App (doSubst bound expr1) (doSubst bound expr2)
           doSubst bound (Var v) = if not (v `elem` bound) && v == haystack then needle else (Var v)
 
+subst' :: Expr -> String -> String -> Expr
+subst' (Var x) from to = Var $ if x == from then to else x
+subst' (Lambda x p) from to = Lambda (if x == from then to else x) (subst' p from to)
+subst' (App p q) from to = App (subst' p from to) (subst' q from to)
+
 freeForSubst :: Expr -> String -> Expr -> Bool
 freeForSubst expr x theta = (x `elem` freeVars expr) <= thetaVarsSet `S.isSubsetOf` freeVarsSet
     where thetaVarsSet = S.fromList $ allVars theta
           freeVarsSet  = S.fromList $ freeVars $ subst expr x theta
 
+unused :: String -> [String] -> String
+unused var vars = if not (var `elem` vars) then var else unused (var ++ "'") vars
+
+alphaEquiv :: Expr -> Expr -> Bool
+alphaEquiv (Var x) (Var y) = x == y
+alphaEquiv (Lambda x p) (Lambda y q) = alphaEquiv (subst p x t) (subst q y t)
+    where t = Var $ unused "t" $ allVars p ++ allVars q
+alphaEquiv (App p q) (App r t) = alphaEquiv p r && alphaEquiv q t
+alphaEquiv _ _ = False
+
 eval :: Bool -> Expr -> Expr
 eval f (App l r)  = case (eval f l, eval f r) of
     (Var v,      n) -> Var v `App` n
-    (Lambda v m, n) -> eval f $ subst m v n
+    (Lambda v m, n) -> eval f $ subst m v n'
+        where n' = iterSubst (allVars n) n
+              mvars = allVars m
+              iterSubst [] expr = expr
+              iterSubst (x:xs) expr = subst' (iterSubst xs expr) x (unused x mvars)
     (App a b,    n) -> a `App` b `App` n
 eval f (Lambda v m) = Lambda v $ if f then eval f m else m
 eval _ m            = m

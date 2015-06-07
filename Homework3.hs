@@ -11,7 +11,6 @@ main = do
     let (x:thstr:_) = splitOn ":=" (init rest)
     let expr = read estr
     let theta = read (init thstr)
-    let ans = if freeForSubst expr x theta
-        then show $ subst expr x theta
-        else "Нет свободы для подстановки для переменной " ++ x
+    let ans = case subst expr x theta of Just res -> show res
+                                         Nothing  -> "Нет свободы для подстановки для переменной " ++ x
     writeFile "task3.out" $ ans ++ "\n"

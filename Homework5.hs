@@ -24,4 +24,4 @@ transform (Lambda x e)
 main = do
     str <- readFile "task5.in"
     let expr = read str
-    writeFile "task5.out" $ show (transform expr) ++ "\n"
+    writeFile "task5.out" $ show (transform (normalize expr)) ++ "\n"

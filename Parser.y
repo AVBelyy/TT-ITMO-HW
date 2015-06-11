@@ -75,6 +75,7 @@ data Expr
         = Lambda String Expr
         | App Expr Expr
         | Var String
+    deriving (Eq)
 
 {- Instances & helpers -}
 

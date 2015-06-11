@@ -47,12 +47,15 @@ subst' e@(Lambda v lexpr) x expr
     where z = unused v (freeVars lexpr ++ freeVars expr)
 
 {- multistep beta reduction in type-free calculus, terminates for weakly-normalized terms -}
-normalize :: Expr -> Expr
-normalize (App expr1 expr2) = case normalize expr1 of
-    Lambda v lexpr -> normalize (subst' lexpr v expr2)
-    expr -> expr `App` normalize expr2
-normalize (Lambda v lexpr) = Lambda v (normalize lexpr)
-normalize (Var v) = Var v
+normalize expr = if r /= expr then normalize r else expr
+    where r = reduce expr
+
+reduce :: Expr -> Expr
+reduce (App expr1 expr2) = case expr1 of
+    Lambda v lexpr -> subst' lexpr v expr2
+    expr -> reduce expr1 `App` reduce expr2
+reduce (Lambda v lexpr) = Lambda v (reduce lexpr)
+reduce (Var v) = Var v
 
 {- unification problem solver -}
 solve :: System -> Maybe System

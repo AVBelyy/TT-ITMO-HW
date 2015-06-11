@@ -48,14 +48,12 @@ subst' e@(Lambda v lexpr) x expr
 
 {- multistep beta reduction in type-free calculus, terminates for weakly-normalized terms -}
 normalize :: Expr -> Expr
-normalize expr = if r /= expr then normalize r else expr
-    where r = reduce expr
-
-reduce :: Expr -> Expr
-reduce (App (Lambda v lexpr) expr2) = subst' lexpr v expr2
-reduce (App expr1 expr2) = reduce expr1 `App` reduce expr2
-reduce (Lambda v lexpr) = Lambda v (reduce lexpr)
-reduce (Var v) = Var v
+normalize (App expr1 expr2) = case (normalize expr1, normalize expr2) of
+    (Var v, e) -> Var v `App` e
+    (Lambda v lexpr, e) -> subst' lexpr v e
+    (App a b, e) -> a `App` b `App` e
+normalize (Lambda v lexpr) = Lambda v (normalize lexpr)
+normalize (Var v) = Var v
 
 {- unification problem solver -}
 solve :: System -> Maybe System

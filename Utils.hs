@@ -8,6 +8,7 @@ import Data.STRef
 import Data.List
 import Parser
 import qualified Data.Map as M
+import qualified DeBruijn as DB
 import qualified Parser6 as P6
 
 type System = [(P6.Term, P6.Term)]
@@ -46,16 +47,15 @@ subst' e@(Lambda v lexpr) x expr
     | otherwise = Lambda v (subst' lexpr x expr)
     where z = unused v (freeVars lexpr ++ freeVars expr)
 
-{- multistep beta reduction in type-free calculus, terminates for weakly-normalized terms -}
+{- multistep beta reduction in type-free calculus,
+ - uses De-Bruijn conversion,
+ - terminates for weakly-normalized terms -}
 normalize :: Expr -> Expr
-normalize expr = if r /= expr then normalize r else expr
-    where r = reduce expr
-
-reduce :: Expr -> Expr
-reduce (App (Lambda v lexpr) expr2) = subst' lexpr v expr2
-reduce (App expr1 expr2) = reduce expr1 `App` reduce expr2
-reduce (Lambda v lexpr) = Lambda v (reduce lexpr)
-reduce (Var v) = Var v
+normalize t = unliberateTerm (length $ freeVars t) $ DB.toExpr $ DB.eval $ DB.toDBExpr $ liberateTerm (freeVars t) t
+    where liberateTerm [] t = t
+          liberateTerm (v:vs) t = Lambda v (liberateTerm vs t)
+          unliberateTerm 0 t = t
+          unliberateTerm n (Lambda _ t) = unliberateTerm (n - 1) t
 
 {- unification problem solver -}
 solve :: System -> Maybe System

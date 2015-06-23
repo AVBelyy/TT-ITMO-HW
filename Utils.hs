@@ -51,11 +51,11 @@ subst' e@(Lambda v lexpr) x expr
  - uses De-Bruijn conversion,
  - terminates for weakly-normalized terms -}
 normalize :: Expr -> Expr
-normalize t = unliberateTerm (length $ freeVars t) $ DB.toExpr $ DB.eval $ DB.toDBExpr $ liberateTerm (freeVars t) t
+normalize t = unliberateTerm (freeVars t) $ DB.toExpr $ DB.eval $ DB.toDBExpr $ liberateTerm (freeVars t) t
     where liberateTerm [] t = t
           liberateTerm (v:vs) t = Lambda v (liberateTerm vs t)
-          unliberateTerm 0 t = t
-          unliberateTerm n (Lambda _ t) = unliberateTerm (n - 1) t
+          unliberateTerm [] t = t
+          unliberateTerm (v:vs) (Lambda x t) = unliberateTerm vs (subst' t x (Var v))
 
 {- unification problem solver -}
 solve :: System -> Maybe System

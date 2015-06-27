@@ -7,10 +7,11 @@ import Data.Functor
 import Data.STRef
 import Data.List
 import Parser
+import Control.Monad.State
 import qualified Data.Map as M
-import qualified DeBruijn as DB
 import qualified Parser6 as P6
 
+type NFState = State (M.Map String Expr) Expr
 type System = [(P6.Term, P6.Term)]
 data TypedExpr = NoType | Typed Type
 data Type = Simple String | Complex Type Type
@@ -47,15 +48,32 @@ subst' e@(Lambda v lexpr) x expr
     | otherwise = Lambda v (subst' lexpr x expr)
     where z = unused v (freeVars lexpr ++ freeVars expr)
 
-{- multistep beta reduction in type-free calculus,
- - uses De-Bruijn conversion,
- - terminates for weakly-normalized terms -}
+{- multistep beta reduction in type-free calculus, terminates for weakly-normalized terms -}
 normalize :: Expr -> Expr
-normalize t = unliberateTerm (freeVars t) $ DB.toExpr $ DB.eval $ DB.toDBExpr $ liberateTerm (freeVars t) t
-    where liberateTerm [] t = t
-          liberateTerm (v:vs) t = Lambda v (liberateTerm vs t)
-          unliberateTerm [] t = t
-          unliberateTerm (v:vs) (Lambda x t) = unliberateTerm vs (subst' t x (Var v))
+normalize expr = evalState (multieval expr) M.empty
+
+{- multistep evaluation -}
+multieval :: Expr -> NFState
+multieval expr = eval expr >>= \e -> if e /= expr then multieval e else return expr
+
+{- lazy memoization -}
+eval :: Expr -> NFState
+eval expr = do
+    expr' <- gets $ M.lookup k
+    case expr' of
+        Nothing -> do
+            e <- eval' expr
+            modify $ M.insert k e
+            return e
+        Just e -> return e
+    where k = show expr
+
+{- pattern matching -}
+eval' :: Expr -> NFState
+eval' (App (Lambda v lexpr) expr2) = return $ subst' lexpr v expr2
+eval' (App expr1 expr2) = App <$> eval expr1 <*> eval expr2
+eval' (Lambda v lexpr) = Lambda v <$> eval lexpr
+eval' (Var v) = return $ Var v
 
 {- unification problem solver -}
 solve :: System -> Maybe System

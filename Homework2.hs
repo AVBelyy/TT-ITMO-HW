@@ -9,4 +9,4 @@ main = do
     str <- readFile "task2.in"
     let expr = read str
     let vars = freeVars expr
-    writeFile "task2.out" $ intercalate "\n" vars ++ "\n"
+    writeFile "task2.out" $ unlines vars

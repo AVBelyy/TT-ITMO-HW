@@ -18,7 +18,7 @@ transform (Lambda x (Lambda y e))
 transform (Lambda x (App e1 e2))
     | x `elem` freeVars e1 ++ freeVars e2 = s `App` transform (Lambda x e1) `App` transform (Lambda x e2)
 transform (Lambda x e)
-    | not (x `elem` freeVars e) = k `App` transform e
+    | x `notElem` freeVars e = k `App` transform e
 
 
 main = do

@@ -19,7 +19,7 @@ findBound (Var v)     d = Var $ if v == d then (-v) else v
 updFree :: DBExpr -> Int -> Int -> DBExpr
 updFree (Lambda m)  x d = Lambda $ updFree m x (d + 1)
 updFree (App a b)   x d = App (updFree a x d) (updFree b x d)
-updFree (Var v)     x d = Var $ if v > d then (v + x) else v
+updFree (Var v)     x d = Var $ if v > d then v + x else v
 
 subst :: DBExpr -> DBExpr -> Int -> DBExpr
 subst m@(Var v)  n d = if v < 0 then updFree n d 0 else m
@@ -40,11 +40,11 @@ nil :: Subst
 nil x = error $ "unknown variable '" ++ x ++ "'"
 
 append :: Subst -> String -> Int -> Subst
-append ctx s v = \x -> if x == s then v else ctx x
+append ctx s v x = if x == s then v else ctx x
 
 toDBExpr :: P.Expr -> DBExpr
 toDBExpr expr = _toDBExpr expr nil 0 where
-    _toDBExpr (P.Var v)      ctx d = Var $ d - (ctx v)
+    _toDBExpr (P.Var v)      ctx d = Var $ d - ctx v
     _toDBExpr (P.Lambda v m) ctx d = Lambda $ _toDBExpr m (append ctx v d) (d + 1)
     _toDBExpr (P.App a b)    ctx d = App (_toDBExpr a ctx d) (_toDBExpr b ctx d)
 
@@ -54,10 +54,10 @@ dbnil :: DBSubst
 dbnil x = error $ "unknown variable '" ++ show x ++ "'"
 
 genVar :: Int -> String
-genVar x = ['x', 'y', 'z', 'v', 't'] !! q : iterate ('\'':) "" !! p where p = x `div` 5
-                                                                          q = x `mod` 5
+genVar x = "xyzvt" !! q : iterate ('\'':) "" !! p where p = x `div` 5
+                                                        q = x `mod` 5
 dbappend :: DBSubst -> Int -> String -> DBSubst
-dbappend ctx v s = \x -> if x == v then s else ctx x
+dbappend ctx v s x = if x == v then s else ctx x
 
 toExpr :: DBExpr -> P.Expr
 toExpr expr = _toExpr expr dbnil 0 where

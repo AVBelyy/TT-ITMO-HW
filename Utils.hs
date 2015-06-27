@@ -17,7 +17,7 @@ data Type = Simple String | Complex Type Type
 
 freeVars :: Expr -> [String]
 freeVars (Lambda v expr) = freeVars expr \\ [v]
-freeVars (App expr1 expr2) = freeVars expr1 ++ freeVars expr2
+freeVars (App expr1 expr2) = nub $ freeVars expr1 ++ freeVars expr2
 freeVars (Var v) = [v]
 
 {- lambda terms substitution -}
@@ -51,11 +51,10 @@ subst' e@(Lambda v lexpr) x expr
  - uses De-Bruijn conversion,
  - terminates for weakly-normalized terms -}
 normalize :: Expr -> Expr
-normalize t = unliberateTerm (freeVars t) $ DB.toExpr $ DB.eval $ DB.toDBExpr $ liberateTerm (freeVars t) t
-    where liberateTerm [] t = t
-          liberateTerm (v:vs) t = Lambda v (liberateTerm vs t)
-          unliberateTerm [] t = t
-          unliberateTerm (v:vs) (Lambda x t) = unliberateTerm vs (subst' t x (Var v))
+normalize t = unliberateTerm (map Var fv) $ DB.toExpr $ DB.eval $ DB.toDBExpr $ liberateTerm t fv
+    where fv = freeVars t
+          liberateTerm = foldr Lambda
+          unliberateTerm = flip $ foldl $ \(Lambda x t) v -> subst' t x v
 
 {- unification problem solver -}
 solve :: System -> Maybe System
@@ -71,12 +70,12 @@ solve = _solve 0
           _solve _ ((P6.Function f as, P6.Var x):eqs)
               = _solve 0 ((P6.Var x, P6.Function f as):eqs)
           _solve _ ((P6.Var x, t):eqs)
-              | not (x `elem` _vars t) && (or ( map (\(a, b) -> x `elem` _vars a ++ _vars b) eqs)) = _solve 0 $ (P6.Var x, t) : gsubst
+              | x `notElem` _vars t && any (\(a, b) -> x `elem` _vars a ++ _vars b) eqs = _solve 0 $ (P6.Var x, t) : gsubst
               where gsubst = map (\(a, b) -> (_subst x t a, _subst x t b)) eqs
           _solve _ ((P6.Var x, t@(P6.Function _ _)):_)
               | x `elem` _vars t = Nothing
           _solve _ eqs@[(P6.Var x, t)]
-              | not (x `elem` _vars t) = Just eqs
+              | x `notElem` _vars t = Just eqs
               | otherwise = Nothing
           _solve n (a:b:eqs) = _solve (n + 1) $ (b:eqs) ++ [a]
           _subst y to (P6.Var x) = if x == y then to else P6.Var x
@@ -125,12 +124,12 @@ constructSystem expr = runST $ do
             flatize e@(App expr1 expr2) = e : flatize expr1 ++ flatize expr2
             eq1 a = (P6.Var (show a), P6.Var (show a))
             eq2 a b c = (P6.Var (show a), P6.Function "->" [P6.Var (show b), P6.Var (show c)])
-            newTypeVar vars = readSTRef vars >>= \v -> (writeSTRef vars (v + 1)) >> return v
+            newTypeVar vars = readSTRef vars >>= \v -> writeSTRef vars (v + 1) >> return v
             assignVarToTerm tt vars expr = do
                 let s = show expr
                 m <- readSTRef tt
                 case M.lookup s m of
-                    Nothing    -> newTypeVar vars >>= \v -> (writeSTRef tt (M.insert s [v] m)) >> return v
+                    Nothing    -> newTypeVar vars >>= \v -> writeSTRef tt (M.insert s [v] m) >> return v
                     Just (v:_) -> return v
 
 {- terms and types output -}
